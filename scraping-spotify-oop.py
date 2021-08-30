@@ -1,10 +1,8 @@
 import requests
 import base64
 import datetime
-import pprint
 import urllib.parse
 import pandas as pd
-
 
 class SpotifyAPI():
 	def __init__(self, client_id, client_secret, keyword_artist):
@@ -15,10 +13,10 @@ class SpotifyAPI():
 	def get_access_token(self):
 		client = f'{self.client_id}:{self.client_secret}'
 		client_base64 = base64.b64encode(client.encode())
-		self.header_basic = {'Authorization': f'Basic {client_base64.decode()}'}
+		header_basic = {'Authorization': f'Basic {client_base64.decode()}'}
 		token_url = 'https://accounts.spotify.com/api/token'
 		token_params = {'grant_type': 'client_credentials'}
-		token_request = self.request_data(token_url, token_params, self.header_basic, type='post')
+		token_request = self.request_data(token_url, token_params, header_basic, type='post')
 		access_token = token_request['access_token']
 		#expires_in = token_request['expires_in']
 		return access_token
@@ -38,11 +36,9 @@ class SpotifyAPI():
 
 	def get_albums(self, id_artist):
 	    my_dict = []
-	    url_get_album = f'https://api.spotify.com/v1/artists/{id_artist}/albums?limit=50&include_groups=album'
+	    url_get_album = f'https://api.spotify.com/v1/artists/{id_artist}/albums?limit=50'
 	    r = self.request_data(url_get_album, header=self.headers_bearer)
 	    albums = r['items']
-	    albums_total = r['total']
-	    albums_next = r['next']
 	    count = 1
 	    for album in albums:
 	    	album_id = album['id']
@@ -63,8 +59,6 @@ class SpotifyAPI():
 			url_get_track = f'https://api.spotify.com/v1/albums/{df_album["album_id"][x]}/tracks?limit=50'
 			r = self.request_data(url_get_track, header=self.headers_bearer)
 			tracks = r['items']
-			tracks_total = r['total']
-			tracks_next = r['next']
 			count = 1
 			for track in tracks:
 				track_id = track['id']
@@ -83,11 +77,11 @@ class SpotifyAPI():
 			url_get_audio = f'https://api.spotify.com/v1/audio-features/{df_tracks["track_id"][x]}'
 			audio = self.request_data(url_get_audio, header=self.headers_bearer)
 			(print(f'Get Audio {df_tracks["track_name"][x]}'))
-			my_dict.append({'danceability': audio['danceability'], 'energy': audio['energy'], 'key': audio['key'], 'loudness': audio['loudness'], 'mode': audio['mode'], 'speechiness': audio['speechiness'], 'acousticness': audio['acousticness'], 'instrumentalness': audio['instrumentalness'], 'liveness': audio['liveness'], 'valence': audio['valence'], 'tempo': audio['tempo'], 'duration_ms': audio['duration_ms'], 'time_signature': audio['time_signature'], 'analysis_url': audio['analysis_url']})
+			my_dict.append(audio)
 		df_audio = self.save_to_dataframe(self.name_artist+'_audio.csv', my_dict)
 		result = pd.concat([df_tracks, df_audio], axis=1)
 		result.to_csv(self.name_artist+'_completed.csv', index=False)
-		return "Success!"
+		print("end!")
 
 	def save_to_dataframe(self, name_file, my_dict):
 		df = pd.DataFrame(my_dict, columns=my_dict[0].keys())
@@ -104,7 +98,7 @@ class SpotifyAPI():
 
 client_id = 'xxxx'
 client_secret = 'xxxx'
-keyword_artist = 'Blackpink'
+keyword_artist = 'Oasis'
 
 spotify = SpotifyAPI(client_id, client_secret, keyword_artist)
 token = spotify.get_access_token()
