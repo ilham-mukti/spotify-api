@@ -22,6 +22,7 @@ class SpotifyAPI():
 		return access_token
 
 	def get_artist(self, access_token):
+		# Search for an Item
 		self.headers_bearer = {'Authorization': f'Bearer {access_token}'}
 		url_search = f'https://api.spotify.com/v1/search?q={self.keyword_artist}&type=artist'
 		r = self.request_data(url_search, header=self.headers_bearer)
@@ -35,6 +36,7 @@ class SpotifyAPI():
 		return id_artist
 
 	def get_albums(self, id_artist):
+		# Get an Artist's Albums
 	    my_dict = []
 	    url_get_album = f'https://api.spotify.com/v1/artists/{id_artist}/albums?limit=50'
 	    r = self.request_data(url_get_album, header=self.headers_bearer)
@@ -54,6 +56,7 @@ class SpotifyAPI():
 	    return df_album
 
 	def get_tracks(self, df_album):
+		# Get an Album's Tracks
 		my_dict = []
 		for x in range(0, df_album.shape[0]):
 			url_get_track = f'https://api.spotify.com/v1/albums/{df_album["album_id"][x]}/tracks?limit=50'
@@ -72,16 +75,39 @@ class SpotifyAPI():
 		return df_tracks
 
 	def get_audio(self, df_tracks):
+		# Get Audio Features for Several Tracks
 		my_dict = []
-		for x in range(0, df_tracks.shape[0]):
-			url_get_audio = f'https://api.spotify.com/v1/audio-features/{df_tracks["track_id"][x]}'
-			audio = self.request_data(url_get_audio, header=self.headers_bearer)
-			(print(f'Get Audio {df_tracks["track_name"][x]}'))
-			my_dict.append(audio)
+		for x in range(0, len(df_tracks), 100):
+			data_50 = df_tracks.track_id[x:x+100].array
+			ids_tracks = ','.join(data_50)
+			url_get_audio = f'https://api.spotify.com/v1/audio-features?ids={ids_tracks}'
+			audios = self.request_data(url_get_audio, header=self.headers_bearer)
+			for audio in audios['audio_features']:
+				my_dict.append(audio)
 		df_audio = self.save_to_dataframe(self.name_artist+'_audio.csv', my_dict)
-		result = pd.concat([df_tracks, df_audio], axis=1)
-		result.to_csv(self.name_artist+'_completed.csv', index=False)
+		df_audio = pd.concat([df_tracks, df_audio], axis=1)
+		df_audio.to_csv(self.name_artist+'_audio.csv', index=False)
 		print("end!")
+		return df_audio
+
+	def get_popularity_tracks(self, df_audio):
+		# Get Several Tracks
+		my_dict = []
+		for x in range(0, len(df_audio), 50):
+			data_50 = df_audio.track_id[x:x+50].array
+			ids_tracks = ','.join(data_50)
+			url_get_popularity = f'https://api.spotify.com/v1/tracks?ids={ids_tracks}'
+			r = self.request_data(url_get_popularity, header=self.headers_bearer)
+			tracks = r['tracks']
+			for track in tracks:
+				track_name = track['name']
+				popularity = track['popularity']
+				print(f'{track_name}\nPopularity: {popularity}\n')
+				my_dict.append({'popularity': popularity})
+		df_popularity = pd.DataFrame(my_dict, columns=my_dict[0].keys())
+		result = pd.concat([df_audio, df_popularity], axis=1)
+		result.to_csv(self.name_artist+'_completed_popularity.csv', index=False)
+		print("yes")
 
 	def save_to_dataframe(self, name_file, my_dict):
 		df = pd.DataFrame(my_dict, columns=my_dict[0].keys())
@@ -96,9 +122,9 @@ class SpotifyAPI():
 		result = request.json()
 		return result
 
-client_id = 'xxxx'
+client_id = 'xxx'
 client_secret = 'xxxx'
-keyword_artist = 'Oasis'
+keyword_artist = 'NCT 127'
 
 spotify = SpotifyAPI(client_id, client_secret, keyword_artist)
 token = spotify.get_access_token()
@@ -106,3 +132,4 @@ artist = spotify.get_artist(token)
 album = spotify.get_albums(artist)
 tracks = spotify.get_tracks(album)
 audio = spotify.get_audio(tracks)
+popularity = spotify.get_popularity_tracks(audio)
